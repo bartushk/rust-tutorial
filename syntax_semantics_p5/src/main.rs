@@ -16,6 +16,8 @@ fn main() {
     ops_and_overloads();
     deref_coercions();
     macros();
+    raw_pointers();
+    unsafes();
 }
 
 
@@ -209,6 +211,132 @@ macro_rules! foo {
     (y => $e:expr) => (println!("mode X: {}", $e));
 }
 
+macro_rules! o_O {
+    (
+        $(
+            $x:expr; [ $( $y:expr ),* ]
+        );*
+    ) => {
+        &[ $($( $x + $y ),*),* ]
+    }
+}
+
+macro_rules! five_times {
+    ($x:expr) => (5 * $x);
+}
+
+fn get_log_state() -> i32 {
+    1
+}
+
+macro_rules! log{
+    ($msg:expr) => [{
+        let state: i32 = get_log_state();
+        if state > 0 {
+            println!("log({}): {}", state, $msg);
+        }
+    }];
+}
+
+macro_rules! write_html{
+    ($w:expr,) => (());
+
+    ($w:expr, $e:tt) => (write!($w, "{}", $e));
+
+    ($w:expr, $tag:ident [ $($inner:tt)* ] $($rest:tt)*) => {{
+        write!($w, "<{}>", stringify!($tag));
+        write_html!($w, $($inner)*);
+        write!($w, "</{}>", stringify!($tag));
+        write_html!($w, $($rest)*);
+    }}
+
+}
+
 fn macros(){
     foo!(y => 3); 
+    foo!(x => 3); 
+
+    let a: &[i32] = o_O!(10; [1, 2, 3];
+                         20; [3, 4, 6]);
+
+    println!("The result is: {:?}", a);
+    println!("Better than c macro: {}", five_times!(2 + 3));
+    let state: &str = "This is not shadowed!:D";
+    log!(state);
+
+    use std::fmt::Write;
+    let mut out = String::new();
+    write_html!(&mut out, 
+        html[
+            head[title["Macros guide!"]]
+            body[h1["Macros are the best!"]]
+        ]);
+    
+    println!("{}", out);
+
+    let v = vec![1, 2, 3, 4, 5];
+    let v = vec![0; 100];
+
+    // panics if fails
+    assert!(true);
+    assert_eq!(5, 3 + 2);
+
+    use std::fs::File;
+
+    fn foo() -> std::io::Result<()> {
+        let f = try!(File::create("test.txt"));
+        Ok(())
+    }
+
+    println!("Foo result: {:?}", foo());
+
+    if false {
+        unreachable!();
+    }
+
+}
+
+fn test_unimplemented_macro() -> i32 {
+    unimplemented!(); 
+}
+
+fn raw_pointers(){
+    let x = 5;
+    let raw = &x as *const i32;
+
+    let points_at = unsafe{*raw};
+    println!("raw points at {}", points_at);
+
+    let mut y = 10;
+    let raw_mut = &mut y as *mut i32;
+
+    //Recomended method of conversion
+    
+    // explicit cast
+    let i: u32 = 1;
+    let p_imm: *const u32 = &i as *const u32;
+
+    //impleict coercion
+    let mut m: u32 = 2;
+    let p_mut: *mut u32 = &mut m;
+
+    unsafe {
+        let ref_imm: &u32 = &*p_imm;
+        let ref_mut: &mut u32 = &mut *p_mut;
+    }
+}
+
+// All functions called from FFI must be unsafe
+unsafe fn not_safe(){
+
+}
+
+unsafe trait Crazy {}
+
+unsafe impl Crazy for i32 {}
+
+fn unsafes(){
+    unsafe {
+        // can do crazy stuff here
+    }
 }
