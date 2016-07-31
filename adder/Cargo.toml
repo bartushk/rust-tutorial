@@ -1,0 +1,12 @@
+[package]
+name = "adder"
+version = "0.1.0"
+authors = ["Kyle Bartush <bartushk@gmail.com>"]
+
+[dependencies]
+bcrypt = {version = "0.1.1", optional = true}
+
+
+[features]
+default = []
+secure-password = ["bcrypt"]
