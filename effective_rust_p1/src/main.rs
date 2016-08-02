@@ -7,6 +7,11 @@ use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use std::io;
+use std::num;
+use std::error;
+use std::fmt;
+use std::error::Error;
 
 
 fn main() {
@@ -159,23 +164,55 @@ fn file_double<P: AsRef<Path>>(file_path: P) -> Result<i32, String> {
         .map(|n| 2 * n)
 }
 
-fn file_double2<P: AsRef<Path>>(file_path: P) -> Result<i32, String> {
-    let mut file = match File::open(file_path){
-        Ok(file) => file,
-        Err(err) => return Err(err.to_string()),
-    };
-    
+fn file_double2<P: AsRef<Path>>(file_path: P) -> Result<i32, CliError> {
+    let mut file = try!(File::open(file_path).map_err(CliError::Io));
     let mut contents = String::new();
-    if let Err(err) = file.read_to_string(&mut contents) {
-        return Err(err.to_string());
+    try!(file.read_to_string(&mut contents).map_err(CliError::Io));
+    let n: i32 = try!(contents.trim().parse::<i32>().map_err(CliError::Parse));
+    Ok(2 * n)
+}
+
+#[derive(Debug)]
+enum CliError {
+    Io(io::Error),
+    Parse(num::ParseIntError),
+}
+
+impl fmt::Display for CliError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            CliError::Io(ref err) => write!(f, "IO error:  {}", err),
+            CliError::Parse(ref err) => write!(f, "Parse error: {}", err),
+        }
+    }
+}
+
+impl error::Error for CliError {
+    fn description(&self) -> &str {
+        match *self{
+            CliError::Io(ref err) => err.description(),
+            CliError::Parse(ref err) => err.description(),
+        }
     }
 
-    let n: i32 = match contents.trim().parse() {
-        Ok(n) => n,
-        Err(err) => return Err(err.to_string()),
-    };
-    Ok(2 * n)
+    fn cause(&self) -> Option<&error::Error> {
+        match *self {
+            CliError::Io(ref err) => Some(err),
+            CliError::Parse(ref err) => Some(err),
+        }
+    }
+}
 
+impl From<io::Error> for CliError {
+    fn from(err: io::Error) -> CliError {
+        CliError::Io(err)
+    }
+}
+
+impl From<num::ParseIntError> for CliError {
+    fn from(err: num::ParseIntError) -> CliError {
+        CliError::Parse(err)
+    }
 }
 
 
@@ -207,7 +244,7 @@ fn error_handling() {
 
     match file_double2("foobar") {
         Ok(n) => println!("{}", n),
-        Err(err) => println!("Error: {}", err)
+        Err(err) => println!("Error: {:?}", err)
     }
 
 }
